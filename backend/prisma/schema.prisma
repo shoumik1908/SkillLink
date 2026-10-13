@@ -1,0 +1,80 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String          @id @default(cuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  college      String
+  yearOfStudy  Int
+  skills       String[]
+  bio          String?
+  avatarUrl    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  ownedListings   Listing[]       @relation("ListingOwner")
+  memberships     ListingMember[]
+  joinRequests    JoinRequest[]
+  notifications   Notification[]
+}
+
+model Listing {
+  id               String          @id @default(cuid())
+  ownerId          String
+  owner            User            @relation("ListingOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  type             String          // 'Project' | 'Hackathon Team' | 'Competition'
+  requiredSkills   String[]
+  intendedTeamSize Int
+  college          String
+  status           String          @default("OPEN") // 'OPEN' | 'FILLED' | 'CLOSED'
+  deadline         DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  members          ListingMember[]
+  joinRequests     JoinRequest[]
+}
+
+model ListingMember {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([listingId, userId])
+}
+
+model JoinRequest {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status    String   @default("pending") // 'pending' | 'approved' | 'denied'
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listingId, studentId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
