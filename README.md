@@ -98,14 +98,5 @@ npm run dev
 
 ---
 
-## 🧪 Pre-configured Seed Accounts
-
-When using `npm run db:seed`, you can test with these demo accounts (Password for all: `password123`):
-- `shoumik1908@gmail.com` (React, UI/UX, Tailwind)
-- `bob@uni.edu` (Python, Machine Learning)
-- `charlie@uni.edu` (Node.js, PostgreSQL, React)
-
----
-
 ## 📄 License
 MIT
