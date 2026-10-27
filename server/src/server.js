@@ -53,7 +53,7 @@ app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 
 // Basic Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -61,13 +61,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/listings', listingRoutes);
-app.use('/api/requests', requestRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+// API Routes (supports both /api/* and /* for reverse proxy compatibility)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/admin', '/admin'], adminRoutes);
+app.use(['/api/listings', '/listings'], listingRoutes);
+app.use(['/api/requests', '/requests'], requestRoutes);
+app.use(['/api/reports', '/reports'], reportRoutes);
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
 
 // 404 Handler
 app.use((req, res) => {

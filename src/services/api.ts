@@ -1,6 +1,7 @@
 import type { User, Listing, JoinRequest, Notification, Match } from '../types';
 
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
+const rawBase = (import.meta.env.VITE_API_BASE_URL || '/api').trim().replace(/\/+$/, '');
+export const API_BASE = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
 
 export const apiUrl = (endpoint: string): string => {
   const clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
