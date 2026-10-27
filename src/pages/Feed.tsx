@@ -3,12 +3,16 @@ import { useAppContext } from '../context/AppContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Users, Code, Trophy, Sparkles, Calendar } from 'lucide-react';
+import { Users, Code, Trophy, Sparkles, Calendar, Flag } from 'lucide-react';
+import { ReportModal } from '../components/modals/ReportModal';
+import { useToast } from '../components/admin/Toast';
 import type { ListingType } from '../types';
 
 export const Feed = () => {
   const { listings, sendRequest, requests, currentUser } = useAppContext();
   const [filterType, setFilterType] = useState<ListingType | 'All'>('All');
+  const [reportingListing, setReportingListing] = useState<any | null>(null);
+  const toast = useToast();
 
   const filteredListings = filterType === 'All' 
     ? listings 
@@ -56,7 +60,9 @@ export const Feed = () => {
           filteredListings.map(listing => {
             const hasRequested = requests.some(r => r.listingId === listing.id && r.studentId === currentUser?.id);
             const isOwner = listing.ownerId === currentUser?.id;
-            const isFull = listing.currentTeamIds.length >= listing.intendedTeamSize;
+            const teamMembers = listing.currentTeamIds || [];
+            const reqSkills = listing.requiredSkills || [];
+            const isFull = teamMembers.length >= (listing.intendedTeamSize || 1);
 
             return (
               <Card key={listing.id} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -82,7 +88,7 @@ export const Feed = () => {
                     </div>
                     <div className="flex items-center text-sm font-medium bg-slate-50 px-3 py-1 rounded-full border border-slate-100 text-slate-600">
                       <Users className="w-4 h-4 mr-2 text-slate-400" />
-                      {listing.currentTeamIds.length} / {listing.intendedTeamSize}
+                      {teamMembers.length} / {listing.intendedTeamSize || 1}
                     </div>
                   </div>
                 </CardHeader>
@@ -94,7 +100,7 @@ export const Feed = () => {
                   <div>
                     <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Required Skills</h4>
                     <div className="flex flex-wrap gap-2">
-                      {listing.requiredSkills.map(skill => (
+                      {reqSkills.map(skill => (
                         <Badge key={skill} variant="outline" className="bg-slate-50">
                           {skill}
                         </Badge>
@@ -102,8 +108,20 @@ export const Feed = () => {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="bg-slate-50 border-t border-slate-100 p-4">
-                  <div className="flex justify-end w-full">
+                <CardFooter className="bg-slate-50 border-t border-slate-100 p-4 flex items-center justify-between">
+                  <div>
+                    {!isOwner && (
+                      <button
+                        onClick={() => setReportingListing(listing)}
+                        className="inline-flex items-center text-xs text-slate-400 hover:text-rose-600 transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-rose-50/60"
+                        title="Report this listing to campus administrators"
+                      >
+                        <Flag className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                        <span>Report</span>
+                      </button>
+                    )}
+                  </div>
+                  <div>
                     {isOwner ? (
                       <Button variant="secondary" disabled>Your Listing</Button>
                     ) : hasRequested ? (
@@ -122,6 +140,17 @@ export const Feed = () => {
           })
         )}
       </div>
+
+      {/* Reporting Modal */}
+      {reportingListing && (
+        <ReportModal
+          isOpen={Boolean(reportingListing)}
+          onClose={() => setReportingListing(null)}
+          listingId={reportingListing.id}
+          targetTitle={reportingListing.title}
+          onSuccess={() => toast.success('Report submitted to administrators.')}
+        />
+      )}
     </div>
   );
 };

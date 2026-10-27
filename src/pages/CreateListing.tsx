@@ -26,14 +26,15 @@ export const CreateListing = () => {
   const [skillInput, setSkillInput] = useState('');
 
   const handleAddSkill = (skill: string) => {
-    if (skill && !requiredSkills.includes(skill)) {
-      setRequiredSkills([...requiredSkills, skill]);
+    const trimmed = skill.trim();
+    if (trimmed && !requiredSkills.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      setRequiredSkills([...requiredSkills, trimmed]);
       setSkillInput('');
     }
   };
 
   const handleRemoveSkill = (skill: string) => {
-    setRequiredSkills(requiredSkills.filter(s => s !== skill));
+    setRequiredSkills(requiredSkills.filter((s) => s.toLowerCase() !== skill.toLowerCase()));
   };
 
   const handleSubmit = (e: React.FormEvent) => {

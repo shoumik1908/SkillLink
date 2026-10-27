@@ -25,7 +25,9 @@ export const Matches = () => {
             if (!listing) return null;
 
             const hasRequested = requests.some(r => r.listingId === listing.id && r.studentId === currentUser?.id);
-            const isFull = listing.currentTeamIds.length >= listing.intendedTeamSize;
+            const teamMembers = listing.currentTeamIds || [];
+            const reqSkills = listing.requiredSkills || [];
+            const isFull = teamMembers.length >= (listing.intendedTeamSize || 1);
             
             // Format score as percentage
             const scorePercent = Math.round(match.score * 100);
@@ -59,7 +61,7 @@ export const Matches = () => {
                     </div>
                     <div className="flex items-center text-sm font-medium bg-slate-50 px-3 py-1 rounded-full border border-slate-100 text-slate-600">
                       <Users className="w-4 h-4 mr-2 text-slate-400" />
-                      {listing.currentTeamIds.length} / {listing.intendedTeamSize}
+                      {teamMembers.length} / {listing.intendedTeamSize || 1}
                     </div>
                   </div>
                 </CardHeader>
@@ -76,7 +78,7 @@ export const Matches = () => {
                           {skill}
                         </Badge>
                       ))}
-                      {listing.requiredSkills.filter(s => !match.overlappingSkills.includes(s)).map(skill => (
+                      {reqSkills.filter(s => !match.overlappingSkills.includes(s)).map(skill => (
                         <Badge key={skill} variant="outline" className="bg-slate-50 text-slate-400 border-slate-200">
                           {skill}
                         </Badge>

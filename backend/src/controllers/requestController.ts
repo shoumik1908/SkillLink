@@ -121,7 +121,7 @@ export const getRequests = async (req: AuthRequest, res: Response): Promise<void
       },
       include: {
         listing: { select: { id: true, title: true, type: true } },
-        student: { select: { id: true, name: true, email: true, college: true, skills: true, yearOfStudy: true } },
+        student: { select: { id: true, name: true, email: true, college: true, skills: true, yearOfStudy: true, resumeUrl: true, resumeName: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

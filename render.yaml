@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: skilllink-server
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: ALLOWED_EMAIL_DOMAIN
+        value: muj.manipal.edu
+      - key: COOKIE_SAME_SITE
+        value: lax

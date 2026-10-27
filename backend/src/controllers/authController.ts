@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 
@@ -57,6 +59,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         skills: true,
         bio: true,
         avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
         createdAt: true,
       },
     });
@@ -133,6 +137,8 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         skills: true,
         bio: true,
         avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
         createdAt: true,
       },
     });
@@ -176,6 +182,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         skills: true,
         bio: true,
         avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
       },
     });
 
@@ -197,6 +205,9 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
         yearOfStudy: true,
         skills: true,
         bio: true,
+        avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
       },
     });
     res.json({ users });
@@ -205,3 +216,117 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ message: 'Failed to fetch users' });
   }
 };
+
+export const uploadResume = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: 'No file uploaded or invalid file format' });
+      return;
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { resumeUrl: true },
+    });
+
+    // Delete previous file if exists locally
+    if (existingUser?.resumeUrl && existingUser.resumeUrl.startsWith('/uploads/resumes/')) {
+      const oldFilename = path.basename(existingUser.resumeUrl);
+      const oldPath = path.join(process.cwd(), 'uploads', 'resumes', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        try {
+          fs.unlinkSync(oldPath);
+        } catch (unlinkErr) {
+          console.warn('Could not remove previous resume file:', unlinkErr);
+        }
+      }
+    }
+
+    const resumeUrl = `/uploads/resumes/${req.file.filename}`;
+    const resumeName = req.file.originalname;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        resumeUrl,
+        resumeName,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        college: true,
+        yearOfStudy: true,
+        skills: true,
+        bio: true,
+        avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({ user: updatedUser, message: 'Resume uploaded successfully' });
+  } catch (error: any) {
+    console.error('uploadResume error:', error);
+    res.status(500).json({ message: error.message || 'Failed to upload resume' });
+  }
+};
+
+export const deleteResume = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { resumeUrl: true },
+    });
+
+    if (existingUser?.resumeUrl && existingUser.resumeUrl.startsWith('/uploads/resumes/')) {
+      const filename = path.basename(existingUser.resumeUrl);
+      const filePath = path.join(process.cwd(), 'uploads', 'resumes', filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (unlinkErr) {
+          console.warn('Could not remove resume file:', unlinkErr);
+        }
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        resumeUrl: null,
+        resumeName: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        college: true,
+        yearOfStudy: true,
+        skills: true,
+        bio: true,
+        avatarUrl: true,
+        resumeUrl: true,
+        resumeName: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({ user: updatedUser, message: 'Resume removed successfully' });
+  } catch (error: any) {
+    console.error('deleteResume error:', error);
+    res.status(500).json({ message: 'Failed to remove resume' });
+  }
+};
+

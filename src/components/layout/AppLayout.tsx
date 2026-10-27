@@ -6,15 +6,19 @@ import {
   Bell,
   PlusCircle,
   Search,
-  User,
+  User as UserIcon,
   LogOut,
   ChevronDown,
+  ShieldCheck,
+  Sparkles,
+  ScrollText,
 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
-import { setAuthToken } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export const AppLayout = () => {
-  const { currentUser, setCurrentUser, notifications } = useAppContext();
+  const { user, role, logout } = useAuth();
+  const { currentUser, notifications } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -23,12 +27,24 @@ export const AppLayout = () => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Sidebar navigation - Dashboard hidden for now
-  const navItems = [
-    { name: 'Feed', path: '/', icon: List },
-    { name: 'Matches', path: '/matches', icon: LayoutDashboard },
+  const activeUser = user || currentUser;
+
+  // Sidebar navigation
+  const mainNavItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Feed', path: '/feed', icon: List },
+    { name: 'Matches', path: '/matches', icon: Sparkles },
     { name: 'Requests', path: '/requests', icon: Bell, badge: unreadCount },
   ];
+
+  const adminNavItems = [
+    { name: 'Access Management', path: '/access-management', icon: ShieldCheck },
+    { name: 'Listings', path: '/admin/listings', icon: List },
+    { name: 'Reports', path: '/admin/reports', icon: Bell },
+    { name: 'Logs', path: '/admin/audit-log', icon: ScrollText },
+  ];
+
+  const allNavItems = [...mainNavItems, ...adminNavItems];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -41,23 +57,32 @@ export const AppLayout = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsProfileOpen(false);
-    setCurrentUser(null);
-    setAuthToken(null);
-    navigate('/login');
+    await logout();
+    navigate('/login', { replace: true });
   };
 
-  if (!currentUser) return <Outlet />;
-
-  const initials = currentUser?.name
-    ? currentUser.name
+  const initials = activeUser?.name
+    ? activeUser.name
         .split(' ')
         .map((n) => n[0])
         .join('')
         .slice(0, 2)
         .toUpperCase()
-    : 'SK';
+    : 'U';
+
+  const checkIsActive = (path: string, exact = false) => {
+    if (exact) return location.pathname === path;
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/' || location.pathname === '/admin';
+    }
+    if (path === '/feed') return location.pathname === '/feed';
+    if (path === '/access-management') {
+      return location.pathname === '/access-management' || location.pathname === '/admin/users';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -73,37 +98,73 @@ export const AppLayout = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto py-2 md:py-6 px-4 md:px-4 flex md:flex-col justify-between md:justify-start">
-          <ul className="flex md:flex-col w-full md:space-y-2 justify-around md:justify-start">
-            {navItems.map((item) => {
-              const isActive =
-                item.path === '/'
-                  ? location.pathname === '/'
-                  : location.pathname.startsWith(item.path);
-              const Icon = item.icon;
-              return (
-                <li key={item.name} className="md:w-full flex-1 md:flex-none">
-                  <Link
-                    to={item.path}
-                    className={`flex flex-col md:flex-row items-center justify-center md:justify-start p-2 md:px-4 md:py-3 rounded-xl transition-all ${
-                      isActive
-                        ? 'bg-purple-50 text-purple-700 font-semibold'
-                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <div className="relative">
-                      <Icon className="w-6 h-6 md:w-5 md:h-5 md:mr-3 mb-1 md:mb-0" />
-                      {item.badge && item.badge > 0 ? (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                          {item.badge}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="text-[10px] md:text-sm">{item.name}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="w-full space-y-4">
+            {/* Campus Portal Section */}
+            <div>
+              <p className="hidden md:block px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Campus Network
+              </p>
+              <ul className="flex md:flex-col w-full md:space-y-1 justify-around md:justify-start">
+                {mainNavItems.map((item) => {
+                  const isActive = checkIsActive(item.path);
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.name} className="md:w-full flex-1 md:flex-none">
+                      <Link
+                        to={item.path}
+                        className={`flex flex-col md:flex-row items-center justify-center md:justify-start p-2 md:px-3 md:py-2.5 rounded-xl transition-all ${
+                          isActive
+                            ? 'bg-purple-50 text-purple-700 font-semibold'
+                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        <div className="relative">
+                          <Icon className="w-5 h-5 md:w-4 md:h-4 md:mr-3 mb-1 md:mb-0" />
+                          {item.badge && item.badge > 0 ? (
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="text-[10px] md:text-xs">{item.name}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* Admin Management Section (Strict RBAC: visible ONLY to admin role) */}
+            {role === 'admin' && (
+              <div className="pt-2 md:border-t md:border-slate-100">
+                <p className="hidden md:block px-3 mb-2 text-[10px] font-bold text-purple-700 uppercase tracking-wider flex items-center">
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                  Admin Tools
+                </p>
+                <ul className="flex md:flex-col w-full md:space-y-1 justify-around md:justify-start">
+                  {adminNavItems.map((item) => {
+                    const isActive = checkIsActive(item.path);
+                    const Icon = item.icon;
+                    return (
+                      <li key={item.name} className="md:w-full flex-1 md:flex-none">
+                        <Link
+                          to={item.path}
+                          className={`flex flex-col md:flex-row items-center justify-center md:justify-start p-2 md:px-3 md:py-2 rounded-xl transition-all ${
+                            isActive
+                              ? 'bg-purple-100/70 text-purple-800 font-semibold'
+                              : 'text-slate-500 hover:bg-purple-50/50 hover:text-purple-700'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 md:w-4 md:h-4 md:mr-3 mb-1 md:mb-0 text-purple-600" />
+                          <span className="text-[10px] md:text-xs">{item.name}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
 
           <div className="hidden md:block mt-8 px-2">
             <Link
@@ -131,11 +192,15 @@ export const AppLayout = () => {
               </span>
             </div>
             <h1 className="hidden md:block text-lg font-bold text-slate-800">
-              {navItems.find((n) =>
-                n.path === '/'
-                  ? location.pathname === '/'
-                  : location.pathname.startsWith(n.path)
-              )?.name || 'Dashboard'}
+              {location.pathname === '/access-management' || location.pathname === '/admin/users'
+                ? 'Access Management'
+                : allNavItems.find((n) =>
+                    n.path === '/'
+                      ? location.pathname === '/' || location.pathname === '/feed'
+                      : n.path === '/feed'
+                      ? location.pathname === '/feed' || location.pathname === '/'
+                      : location.pathname.startsWith(n.path)
+                  )?.name || 'Dashboard'}
             </h1>
           </div>
 
@@ -145,7 +210,7 @@ export const AppLayout = () => {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search listings..."
                 className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-100/80 hover:bg-slate-100 focus:bg-white rounded-full border border-transparent focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-100 transition-all text-slate-700 placeholder-slate-400"
               />
             </div>
@@ -166,7 +231,7 @@ export const AppLayout = () => {
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center space-x-1.5 p-1 rounded-full hover:bg-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400 cursor-pointer"
-                title={currentUser.name}
+                title={activeUser?.name || 'Account'}
               >
                 <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-indigo-100 border border-indigo-200 hover:ring-2 hover:ring-purple-400 flex items-center justify-center text-xs md:text-sm font-bold text-indigo-700 shadow-xs transition-all">
                   {initials}
@@ -182,10 +247,23 @@ export const AppLayout = () => {
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-sm font-bold text-slate-800 leading-none">{currentUser.name}</p>
-                    <p className="text-xs text-slate-500 mt-1 truncate">{currentUser.email}</p>
-                    <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-100">
-                      {currentUser.college} • Year {currentUser.yearOfStudy}
+                    <p className="text-sm font-bold text-slate-800 leading-none">{activeUser?.name}</p>
+                    <p className="text-xs text-slate-500 mt-1 truncate">{activeUser?.email}</p>
+                    <div className="mt-2 flex items-center space-x-1.5">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                          role === 'admin'
+                            ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                            : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                        }`}
+                      >
+                        {role === 'admin' ? 'Admin' : 'Student'}
+                      </span>
+                      {activeUser?.college && (
+                        <span className="text-[10px] text-slate-400 truncate">
+                          • {activeUser.college}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -197,9 +275,33 @@ export const AppLayout = () => {
                       }}
                       className="w-full flex items-center px-4 py-2.5 text-xs md:text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer font-medium"
                     >
-                      <User className="w-4 h-4 mr-2.5 text-purple-600" />
+                      <UserIcon className="w-4 h-4 mr-2.5 text-purple-600" />
                       <span>Profile</span>
                     </button>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        navigate('/access-management');
+                      }}
+                      className="w-full flex items-center px-4 py-2.5 text-xs md:text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer font-medium"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-2.5 text-purple-600" />
+                      <span>Access Management</span>
+                    </button>
+
+                    {role === 'admin' && (
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          navigate('/admin');
+                        }}
+                        className="w-full flex items-center px-4 py-2.5 text-xs md:text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer font-medium"
+                      >
+                        <ShieldCheck className="w-4 h-4 mr-2.5 text-purple-600" />
+                        <span>Admin Console</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="pt-1 border-t border-slate-100">

@@ -4,9 +4,14 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  role: 'user' | 'admin';
   college: string;
   yearOfStudy: number;
   skills: SkillTag[];
+  bio?: string;
+  avatarUrl?: string;
+  resumeUrl?: string;
+  resumeName?: string;
 }
 
 export type ListingType = 'Project' | 'Hackathon Team' | 'Competition';

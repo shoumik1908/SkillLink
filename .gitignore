@@ -10,6 +10,7 @@ lerna-debug.log*
 # Dependencies
 node_modules
 backend/node_modules
+server/node_modules
 
 # Build outputs
 dist
@@ -22,8 +23,11 @@ backend/dist
 *.env
 backend/.env
 backend/.env.*
+server/.env
+server/.env.*
 !.env.example
 !backend/.env.example
+!server/.env.example
 
 # Local files
 *.local

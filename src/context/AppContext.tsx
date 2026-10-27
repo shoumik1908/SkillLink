@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { User, Listing, JoinRequest, Notification, Match } from '../types';
 import { api, setAuthToken } from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface AppContextType {
   currentUser: User | null;
@@ -14,13 +15,16 @@ interface AppContextType {
   notifications: Notification[];
   markNotificationRead: (id: string) => Promise<void>;
   matches: Match[];
+  updateProfile: (data: Partial<User>) => Promise<User | void>;
+  uploadResume: (file: File) => Promise<User>;
+  deleteResume: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
 const fallbackUsers: User[] = [
-  { id: 'u1', name: 'Shoumik Kumar', email: 'shoumik1908@gmail.com', college: 'State University', yearOfStudy: 3, skills: ['React', 'UI/UX', 'Tailwind'] },
-  { id: 'u2', name: 'Bob Jones', email: 'bob@uni.edu', college: 'State University', yearOfStudy: 2, skills: ['Python', 'Machine Learning'] },
-  { id: 'u3', name: 'Charlie Brown', email: 'charlie@uni.edu', college: 'State University', yearOfStudy: 4, skills: ['Node.js', 'PostgreSQL', 'React'] },
+  { id: 'u1', name: 'Shoumik Kumar', email: 'shoumik1908@gmail.com', role: 'user', college: 'State University', yearOfStudy: 3, skills: ['React', 'UI/UX', 'Tailwind'] },
+  { id: 'u2', name: 'Bob Jones', email: 'bob@uni.edu', role: 'user', college: 'State University', yearOfStudy: 2, skills: ['Python', 'Machine Learning'] },
+  { id: 'u3', name: 'Charlie Brown', email: 'charlie@uni.edu', role: 'user', college: 'State University', yearOfStudy: 4, skills: ['Node.js', 'PostgreSQL', 'React'] },
 ];
 
 const fallbackListings: Listing[] = [
@@ -51,12 +55,37 @@ const fallbackListings: Listing[] = [
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user: authUser } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(fallbackUsers);
   const [listings, setListings] = useState<Listing[]>(fallbackListings);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+
+  // Synchronize currentUser from AuthContext
+  useEffect(() => {
+    if (authUser) {
+      setCurrentUser(prev => ({
+        ...prev,
+        ...authUser,
+        college: authUser.college || prev?.college || 'State University',
+        yearOfStudy: authUser.yearOfStudy || prev?.yearOfStudy || 1,
+        skills: Array.isArray(authUser.skills) ? authUser.skills : (prev?.skills || []),
+      }));
+    } else {
+      setCurrentUser(null);
+    }
+  }, [authUser]);
+
+  // Normalize listing fields from backend or cache
+  const formatListing = (listing: any): Listing => ({
+    ...listing,
+    requiredSkills: Array.isArray(listing.requiredSkills) ? listing.requiredSkills : [],
+    currentTeamIds: Array.isArray(listing.currentTeamIds)
+      ? listing.currentTeamIds
+      : [listing.ownerId].filter(Boolean),
+  });
 
   // Fetch initial public data (users & listings)
   const loadPublicData = useCallback(async () => {
@@ -68,25 +97,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (usersRes && usersRes.users?.length > 0) {
         setUsers(usersRes.users);
-        if (!currentUser) {
-          // Default to first user if none selected
-          setCurrentUser(usersRes.users[0]);
-        }
       }
 
       if (listingsRes && listingsRes.listings) {
-        setListings(listingsRes.listings);
+        setListings(listingsRes.listings.map(formatListing));
       }
     } catch (err) {
       console.warn('Backend not yet reachable, using cached/fallback data', err);
     }
-  }, [currentUser]);
+  }, []);
 
   useEffect(() => {
     loadPublicData();
   }, [loadPublicData]);
 
-  // When currentUser changes, authenticate with backend & fetch personalized data
+  const computeLocalMatches = useCallback((user: User, currentListings: Listing[]) => {
+    const userSkills = Array.isArray(user.skills) ? user.skills : [];
+    const newMatches: Match[] = currentListings
+      .filter(l => l.ownerId !== user.id && l.college === user.college)
+      .map(listing => {
+        const reqSkills = Array.isArray(listing.requiredSkills) ? listing.requiredSkills : [];
+        const overlappingSkills = reqSkills.filter(skill => userSkills.includes(skill));
+        const score = reqSkills.length > 0 ? overlappingSkills.length / reqSkills.length : 0;
+        return { listingId: listing.id, score, overlappingSkills };
+      })
+      .filter(m => m.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    setMatches(newMatches);
+  }, []);
+
+  // When currentUser changes, fetch personalized data
   const loadUserData = useCallback(async () => {
     if (!currentUser) {
       setRequests([]);
@@ -97,16 +138,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      // Auto-authenticate with seeded password
-      const authRes = await api.login({
-        email: currentUser.email,
-        password: 'password123',
-      }).catch(() => null);
-
-      if (authRes?.token) {
-        setAuthToken(authRes.token);
-      }
-
       // Fetch user-specific requests, notifications, and matches
       const [reqRes, notifRes, matchRes] = await Promise.all([
         api.getRequests().catch(() => null),
@@ -132,32 +163,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Failed to load user-specific data from backend:', err);
       computeLocalMatches(currentUser, listings);
     }
-  }, [currentUser, listings]);
+  }, [currentUser, listings, computeLocalMatches]);
 
   useEffect(() => {
     loadUserData();
   }, [loadUserData]);
-
-  const computeLocalMatches = (user: User, currentListings: Listing[]) => {
-    const newMatches: Match[] = currentListings
-      .filter(l => l.ownerId !== user.id && l.college === user.college)
-      .map(listing => {
-        const overlappingSkills = listing.requiredSkills.filter(skill => user.skills.includes(skill));
-        const score = listing.requiredSkills.length > 0 ? overlappingSkills.length / listing.requiredSkills.length : 0;
-        return { listingId: listing.id, score, overlappingSkills };
-      })
-      .filter(m => m.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    setMatches(newMatches);
-  };
 
   const addListing = async (listingData: Omit<Listing, 'id' | 'ownerId' | 'currentTeamIds'>) => {
     if (!currentUser) return;
     try {
       const res = await api.createListing(listingData);
       if (res?.listing) {
-        setListings(prev => [res.listing, ...prev]);
+        setListings(prev => [formatListing(res.listing), ...prev]);
         return;
       }
     } catch (err) {
@@ -236,6 +253,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
+  const updateProfile = async (data: Partial<User>) => {
+    if (!currentUser) return;
+
+    // Deduplicate skills: no skill should be re-added if already present
+    if (data.skills && Array.isArray(data.skills)) {
+      const seen = new Set<string>();
+      const uniqueSkills: string[] = [];
+      for (const s of data.skills) {
+        if (typeof s === 'string') {
+          const trimmed = s.trim();
+          const lower = trimmed.toLowerCase();
+          if (trimmed && !seen.has(lower)) {
+            seen.add(lower);
+            uniqueSkills.push(trimmed);
+          }
+        }
+      }
+      data.skills = uniqueSkills;
+    }
+
+    try {
+      const res = await api.updateProfile(data);
+      if (res?.user) {
+        setCurrentUser(res.user);
+        setUsers(prev => prev.map(u => u.id === res.user.id ? res.user : u));
+        return res.user;
+      }
+    } catch (err) {
+      console.error('API updateProfile error, fallback locally:', err);
+    }
+    const updated = { ...currentUser, ...data };
+    setCurrentUser(updated);
+    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+    return updated;
+  };
+
+  const uploadResume = async (file: File): Promise<User> => {
+    if (!currentUser) throw new Error('Not logged in');
+    try {
+      const res = await api.uploadResume(file);
+      if (res?.user) {
+        setCurrentUser(res.user);
+        setUsers(prev => prev.map(u => u.id === res.user.id ? res.user : u));
+        return res.user;
+      }
+    } catch (err) {
+      console.warn('API uploadResume error, using local fallback:', err);
+    }
+
+    // Local fallback for offline / mock / cold-start state
+    const localUrl = URL.createObjectURL(file);
+    const updated: User = {
+      ...currentUser,
+      resumeUrl: localUrl,
+      resumeName: file.name,
+    };
+    setCurrentUser(updated);
+    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+    return updated;
+  };
+
+  const deleteResume = async () => {
+    if (!currentUser) return;
+    try {
+      await api.deleteResume();
+    } catch (err) {
+      console.error('API deleteResume error:', err);
+    }
+    const updated = { ...currentUser, resumeUrl: undefined, resumeName: undefined };
+    setCurrentUser(updated);
+    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+  };
+
   const refreshData = async () => {
     await Promise.all([loadPublicData(), loadUserData()]);
   };
@@ -244,7 +334,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       currentUser, setCurrentUser, users, listings, addListing,
       requests, sendRequest, respondToRequest,
-      notifications, markNotificationRead, matches, refreshData
+      notifications, markNotificationRead, matches,
+      updateProfile, uploadResume, deleteResume, refreshData
     }}>
       {children}
     </AppContext.Provider>

@@ -25,14 +25,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
   const handleAddSkill = (e: React.KeyboardEvent | React.MouseEvent) => {
     if ('key' in e && e.key !== 'Enter') return;
     e.preventDefault();
-    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
-      setSkills([...skills, skillInput.trim()]);
+    const trimmed = skillInput.trim();
+    if (trimmed && !skills.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      setSkills([...skills, trimmed]);
       setSkillInput('');
     }
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
-    setSkills(skills.filter((s) => s !== skillToRemove));
+    setSkills(skills.filter((s) => s.toLowerCase() !== skillToRemove.toLowerCase()));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,7 +56,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
       setTitle('');
       setDescription('');
       setDeadline('');
-      setSkills(['React', 'TypeScript']);
+      setSkills([]);
     } catch (err) {
       console.error(err);
     } finally {

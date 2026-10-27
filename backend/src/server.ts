@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/authRoutes.js';
 import listingRoutes from './routes/listingRoutes.js';
 import requestRoutes from './routes/requestRoutes.js';
@@ -20,6 +21,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Static file serving for uploads (resumes, etc.)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
