@@ -84,6 +84,29 @@ app.listen(PORT, () => {
   console.log(`🚀 SkillLink Server running on http://localhost:${PORT}`);
   console.log(`🔒 Allowed Client Origin: ${CLIENT_ORIGIN}`);
   console.log(`📡 Health check available at http://localhost:${PORT}/api/health`);
+
+  // Keep-Alive Self-Ping (prevents Render free tier from sleeping after 15m of inactivity)
+  const externalUrl = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || process.env.PING_URL;
+  if (externalUrl) {
+    const pingTarget = `${externalUrl.replace(/\/+$/, '')}/api/health`;
+    const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    console.log(`💓 [KEEP-ALIVE] Auto-ping active: pinging ${pingTarget} every 10 minutes`);
+
+    setInterval(async () => {
+      try {
+        const response = await fetch(pingTarget, {
+          headers: { 'User-Agent': 'SkillLink-InternalKeepAlive/1.0' },
+        });
+        if (response.ok) {
+          console.log(`💓 [KEEP-ALIVE] Ping OK (${response.status}) at ${new Date().toLocaleTimeString()}`);
+        } else {
+          console.warn(`⚠️ [KEEP-ALIVE] Ping returned status ${response.status}`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ [KEEP-ALIVE] Ping network error:`, err.message);
+      }
+    }, PING_INTERVAL);
+  }
 });
 
 export default app;

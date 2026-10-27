@@ -10,7 +10,8 @@
     "dev": "node --watch src/server.js",
     "migrate": "node src/scripts/migrate.js",
     "seed": "node src/scripts/seed.js",
-    "seed:users": "node scripts/seedUsers.js"
+    "seed:users": "node scripts/seedUsers.js",
+    "keep-alive": "node scripts/keepAlive.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
